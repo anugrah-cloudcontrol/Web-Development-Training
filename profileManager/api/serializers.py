@@ -9,13 +9,12 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'email']
 
 class ProfileSerializer(serializers.ModelSerializer):
-    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())  # Use PrimaryKeyRelatedField
-
     class Meta:
         model = Profile
-        fields = ['user', 'bio', 'location', 'birth_date']
+        fields = ['bio', 'location', 'birth_date']
+
 class UserWithProfileSerializer(serializers.ModelSerializer):
-    profile = ProfileSerializer()  # Nested serializer for profile
+    profile = ProfileSerializer()  # Include the profile data
 
     class Meta:
         model = User

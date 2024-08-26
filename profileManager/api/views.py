@@ -1,15 +1,13 @@
-# views.py
 from rest_framework import generics
 from django.contrib.auth.models import User
-
-from .authentication import CustomAccessToken
 from .models import Profile
 from .serializers import UserSerializer, ProfileSerializer, UserWithProfileSerializer
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate, login, logout
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from .authentication import CustomAccessToken
 
 class UserListAPIView(generics.ListAPIView):
     queryset = User.objects.all()
@@ -53,13 +51,42 @@ class UserCreateAPIView(generics.CreateAPIView):
                 return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
-class UserProfileAPIView(generics.RetrieveAPIView):
-    queryset = User.objects.all()
+class UserProfileAPIView(generics.RetrieveUpdateAPIView):
     serializer_class = UserWithProfileSerializer
-    lookup_field = 'id'
-    permission_classes = [IsAuthenticated]  # Ensure that only authenticated users can access this view
-    
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user
+
+    def put(self, request, *args, **kwargs):
+        user = self.get_object()
+        
+        # Update user details
+        user_serializer = UserSerializer(user, data=request.data, partial=True)
+        
+        if user_serializer.is_valid():
+            user = user_serializer.save()
+
+            # Check if profile exists, if not, create one
+            profile, created = Profile.objects.get_or_create(user=user)
+            profile_data = request.data.get('profile')
+            # print("Profile data :: ",profile_data)
+            
+            profile_serializer = ProfileSerializer(profile, data=profile_data, partial=True)
+            
+            if profile_serializer.is_valid():
+                # print(profile_serializer.validated_data)
+                profile_serializer.save()
+
+                return Response({
+                    "user": user_serializer.data,
+                    "profile": profile_serializer.data
+                }, status=status.HTTP_200_OK)
+            else:
+                return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 from .serializers import LoginSerializer
 class LoginAPIView(generics.GenericAPIView):
     serializer_class = LoginSerializer
@@ -84,6 +111,18 @@ class LoginAPIView(generics.GenericAPIView):
             return Response({'detail': 'Invalid credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
 
 class LogoutAPIView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]  # Ensure the user is logged in
+
     def post(self, request, *args, **kwargs):
-        logout(request)
-        return Response({'detail': 'Successfully logged out.'}, status=status.HTTP_204_NO_CONTENT)
+        try:
+            # This will blacklist the user's current refresh token
+            refresh_token = request.data.get("refresh_token")
+            token = RefreshToken(refresh_token)
+            token.blacklist()  # If using `django-rest-framework-simplejwt` with blacklist support
+            
+            # Optionally, you can also logout the user from the Django session
+            logout(request)
+            
+            return Response({'detail': 'Successfully logged out from all sessions.'}, status=status.HTTP_205_RESET_CONTENT)
+        except Exception as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
