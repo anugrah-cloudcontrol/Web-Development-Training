@@ -1,26 +1,14 @@
 import streamlit as st
-from streamlit_cookies_manager import EncryptedCookieManager
-
-# Create an instance of the cookie manager
-cookies = EncryptedCookieManager(
-    prefix="myapp_", 
-    password="a_very_secret_key"  # Replace this with your secure key
-)
-
-if not cookies.ready():
-    st.stop()
 
 # Initialize the session state attributes
 if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = cookies.get('logged_in', default=False)
+    st.session_state.logged_in = False  # Default to not logged in
 
 if 'page' not in st.session_state:
-    st.session_state.page = cookies.get('page', default='Login')  # Default to 'Login'
+    st.session_state.page = 'Login'  # Default to 'Login'
 
-# Define your proxy settings
-proxies = {
-    "http": "http://127.0.0.1:8000",  # Replace with your actual proxy settings
-}
+if 'token' not in st.session_state:
+    st.session_state.token = None  # Default to no token
 
 def render_page():
     if st.session_state.page == "home":
@@ -37,9 +25,6 @@ def logout_user():
     st.session_state.logged_in = False
     st.session_state.token = None
     st.session_state.page = 'Login'
-    cookies['logged_in'] = 'false'
-    cookies['page'] = st.session_state.page
-    cookies.save()
 
 # Page rendering
 render_page()

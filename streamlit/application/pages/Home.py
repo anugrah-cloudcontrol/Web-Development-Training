@@ -1,24 +1,14 @@
 import os
 import requests
 import streamlit as st
-from streamlit_cookies_manager import EncryptedCookieManager
 from datetime import datetime
-
-# Create an instance of the cookie manager
-cookies = EncryptedCookieManager(
-    prefix="myapp_", 
-    password="a_very_secret_key"  # Replace this with your secure key
-)
-
-if not cookies.ready():
-    st.stop()
 
 # Initialize the session state attributes
 if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = cookies.get('logged_in', default=False)
+    st.session_state.logged_in = False  # Default to not logged in
 
 if 'token' not in st.session_state:
-    st.session_state.token = cookies.get('token', default=None)
+    st.session_state.token = None  # Default to no token
 
 # Get backend address and port from environment variables
 BACKEND_ADDRESS = os.getenv("BACKEND_ADDRESS", "http://127.0.0.1")
@@ -49,7 +39,7 @@ def update_user_data(data):
     headers = {
         "Authorization": f"Bearer {st.session_state.token}"
     }
-    # print("Update data ",data)
+    
     url = f"{BACKEND_ADDRESS}:{PORT}/api/profile/"
     response = requests.put(url, headers=headers, json=data)
     if response.status_code == 200:
@@ -58,7 +48,6 @@ def update_user_data(data):
     else:
         st.error("Failed to update profile.")
         return None
-
 def home():
     st.title("User Dashboard")
 
@@ -86,7 +75,7 @@ def home():
             birth_date = None
 
         birth_date = st.date_input("Birth Date", value=birth_date)
-        # print("User details :: ",birth_date,location,bio)
+        
         if st.button("Save Changes"):
             # Prepare data for update
             data = {
